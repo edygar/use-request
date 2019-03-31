@@ -1,0 +1,61 @@
+{
+  "name": "@edygar/use-request",
+  "version": "0.0.0-semantically-released",
+  "description": "Provides a handle set of hooks and components to facilitate performing requests using React.",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
+  "engines": {
+    "node": "> 4",
+    "npm": "> 3"
+  },
+  "scripts": {
+    "add-contributor": "kcd-scripts contributors add",
+    "build": "kcd-scripts build --bundle",
+    "lint": "kcd-scripts lint",
+    "test": "kcd-scripts test",
+    "test:update": "npm test -- --updateSnapshot --coverage",
+    "validate": "kcd-scripts validate",
+    "setup": "npm install && npm run validate -s"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [],
+  "author": "Edygar de Lima Oliveira <edygar@me.com>",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=16.8"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.2.0",
+    "use-deep-compare": "^0.1.0",
+    "use-deep-compare-effect": "^1.1.0"
+  },
+  "devDependencies": {
+    "jest-in-case": "^1.0.2",
+    "kcd-scripts": "^0.49.0",
+    "react": "^16.8.4",
+    "react-hooks-testing-library": "^0.3.6"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "kcd-scripts pre-commit"
+    }
+  },
+  "eslintConfig": {
+    "extends": "./node_modules/kcd-scripts/eslint.js"
+  },
+  "eslintIgnore": [
+    "node_modules",
+    "coverage",
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edygar/use-request.git"
+  },
+  "bugs": {
+    "url": "https://github.com/edygar/use-request/issues"
+  },
+  "homepage": "https://github.com/edygar/use-request#readme"
+}
