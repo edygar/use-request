@@ -1,4 +1,4 @@
-export default function requestStateReducer(state, {type, payload}) {
+export default function requestStateReducer(state = {}, {type, payload}) {
   switch (type) {
     case 'init':
       return {
