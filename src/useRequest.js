@@ -39,7 +39,7 @@ export function getCacheReducer({
 
 export default function useRequest({
   auto = true,
-  abortOnUnmount = true,
+  abortOnUnmount = false,
   cacheBucket = 'local',
   cacheBy = undefined,
   cacheByParams = undefined,
