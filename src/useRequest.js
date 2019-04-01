@@ -87,7 +87,7 @@ export default function useRequest({
     React.useCallback(
       (...args) => {
         stateRef.current.unsubscribe()
-        performRequest(...args)
+        return performRequest(...args)
       },
       [performRequest, stateRef],
     ),
