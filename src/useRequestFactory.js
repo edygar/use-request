@@ -26,7 +26,7 @@ export function defaultPerformRequest(requestState, registerAborter) {
   }
   const {
     params: {url, ...fetchOptions},
-  } = requestState.params
+  } = requestState
 
   const controller = new AbortController()
   registerAborter(() => {
