@@ -1,6 +1,6 @@
 {
   "name": "@edygar/use-request",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Provides a handle set of hooks and components to facilitate performing requests using React.",
   "main": "dist/@edygar/use-request.cjs.js",
   "module": "dist/@edygar/use-request.esm.js",
