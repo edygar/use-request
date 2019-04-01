@@ -1,4 +1,6 @@
-export {default} from './useRequest'
+import useRequest from './useRequest'
+
+export default useRequest
 export * from './cache'
 export * from './useRequestFactory'
 export {default as useRequestFactory} from './useRequestFactory'

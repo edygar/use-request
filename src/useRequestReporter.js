@@ -10,20 +10,20 @@ export const idleState = {
 }
 
 export default function useRequestReporter({
-  onChange = () => {},
+  onStateChange = () => {},
   ...useRequestParams
 }) {
   const [currentState, setState] = React.useState(idleState)
-  const onChangeRef = useUpdatedRef(onChange)
+  const onStateChangeRef = useUpdatedRef(onStateChange)
 
   const request = useRequestFactory({
     ...useRequestParams,
-    onChange: React.useCallback(
+    onStateChange: React.useCallback(
       newState => {
         setState(newState)
-        onChangeRef.current(newState)
+        onStateChangeRef.current(newState)
       },
-      [onChangeRef],
+      [onStateChangeRef],
     ),
   })
 
@@ -33,10 +33,10 @@ export default function useRequestReporter({
         ...currentState,
         reset() {
           setState(idleState)
-          onChangeRef.current(idleState)
+          onStateChangeRef.current(idleState)
         },
       }),
-      [currentState, onChangeRef],
+      [currentState, onStateChangeRef],
     ),
     request,
   ]

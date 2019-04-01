@@ -17,7 +17,7 @@ export default function useRequest({
   ...params
 }) {
   const abortOnUnmountRef = useUpdatedRef(abortOnUnmount)
-  const localBucket = React.useMemo(() => new Map(), [])
+  const [localBucket] = React.useState(() => new Map(), [])
   const bucket =
     cacheBucket === 'local'
       ? localBucket
