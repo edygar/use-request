@@ -7,15 +7,19 @@ import * as cache from './cache'
 
 const identity = state => state
 
-export function getCacheReducer({cacheBy, cacheByArgs, cacheByParams, bucket}) {
+export function getCacheReducer({
+  cacheBy,
+  cacheByArgs,
+  cacheByParams,
+  bucket,
+  mapRequestType,
+}) {
   if (cacheBy) {
-    if (typeof cacheBy !== 'function') {
-      return () => cacheBy
-    }
+    const getCacheId = cacheBy === 'function' ? cacheBy : () => cacheBy
 
-    if (typeof request === 'function') return cache.byArgs(cacheBy, {bucket})
+    if (mapRequestType === 'function') return cache.byArgs(getCacheId, {bucket})
 
-    return cache.byParams(cacheBy, {bucket})
+    return cache.byParams(getCacheId, {bucket})
   }
 
   if (cacheByArgs) {
@@ -62,16 +66,15 @@ export default function useRequest({
     )
   }
 
-  const finalCacheBy = React.useMemo(
-    () =>
-      getCacheReducer({
-        cacheBy,
-        cacheByArgs,
-        cacheByParams,
-        bucket,
-      }),
-    [cacheBy, cacheByArgs, cacheByParams, bucket],
-  )
+  const mapRequest = params.request
+  const mapRequestType = typeof mapRequest
+  const finalCacheBy = getCacheReducer({
+    cacheBy,
+    cacheByArgs,
+    cacheByParams,
+    mapRequestType,
+    bucket,
+  })
 
   const [state, performRequest] = useRequestReporter({
     ...params,
@@ -79,7 +82,6 @@ export default function useRequest({
       stateReducer(finalCacheBy(newState, action), action),
   })
   const stateRef = useUpdatedRef(state)
-  const mapRequest = params.request
 
   const requestRef = useUpdatedRef(
     React.useCallback(
