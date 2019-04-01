@@ -14,7 +14,7 @@ export function getCacheReducer({
   bucket,
   mapRequestType,
 }) {
-  if (cacheBy) {
+  if (cacheBy !== undefined) {
     const getCacheId = cacheBy === 'function' ? cacheBy : () => cacheBy
 
     if (mapRequestType === 'function') return cache.byArgs(getCacheId, {bucket})
@@ -57,9 +57,9 @@ export default function useRequest({
       : cacheBucket
 
   if (
-    (cacheBy && cacheByArgs) ||
-    (cacheBy && cacheByParams) ||
-    (cacheByArgs && cacheByParams)
+    (cacheBy !== undefined && cacheByArgs !== undefined) ||
+    (cacheBy !== undefined && cacheByParams !== undefined) ||
+    (cacheByArgs !== undefined && cacheByParams !== undefined)
   ) {
     throw new Error(
       `You can't use cacheBy, cacheByParams and cacheByArgs simultaneosly, only one can be used at once.`,
