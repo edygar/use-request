@@ -5,14 +5,41 @@ import useRequestReporter from './useRequestReporter'
 import useUpdatedRef from './useUpdatedRef'
 import * as cache from './cache'
 
-const none = state => state
+const identity = state => state
+
+export function getCacheReducer({cacheBy, cacheByArgs, cacheByParams, bucket}) {
+  if (cacheBy) {
+    if (typeof cacheBy !== 'function') {
+      return () => cacheBy
+    }
+
+    if (typeof request === 'function') return cache.byArgs(cacheBy, {bucket})
+
+    return cache.byParams(cacheBy, {bucket})
+  }
+
+  if (cacheByArgs) {
+    return cache.byArgs(cacheByArgs === true ? undefined : cacheByArgs, {
+      bucket,
+    })
+  }
+
+  if (cacheByParams) {
+    return cache.byArgs(cacheByParams === true ? undefined : cacheByParams, {
+      bucket,
+    })
+  }
+
+  return identity
+}
+
 export default function useRequest({
   auto = true,
   abortOnUnmount = true,
-  cache: shouldCache = false,
-  getCacheId = cache.defaultGetCachedId,
   cacheBucket = 'local',
   cacheBy = undefined,
+  cacheByParams = undefined,
+  cacheByArgs = undefined,
   stateReducer = defaultRequestStateReducer,
   ...params
 }) {
@@ -25,16 +52,27 @@ export default function useRequest({
       ? undefined
       : cacheBucket
 
-  const finalCacheBy =
-    shouldCache === false && !cacheBy
-      ? none
-      : cacheBy === 'params' ||
-        shouldCache === true ||
-        typeof cacheBy === 'function'
-      ? cache.byParams(typeof cacheBy === 'function' ? cacheBy : getCacheId, {
-          bucket,
-        })
-      : cache.byArgs(getCacheId, {bucket})
+  if (
+    (cacheBy && cacheByArgs) ||
+    (cacheBy && cacheByParams) ||
+    (cacheByArgs && cacheByParams)
+  ) {
+    throw new Error(
+      `You can't use cacheBy, cacheByParams and cacheByArgs simultaneosly, only one can be used at once.`,
+    )
+  }
+
+  const finalCacheBy = React.useMemo(
+    () =>
+      getCacheReducer({
+        cacheBy,
+        cacheByArgs,
+        cacheByParams,
+        bucket,
+      }),
+    [cacheBy, cacheByArgs, cacheByParams, bucket],
+  )
+
   const [state, performRequest] = useRequestReporter({
     ...params,
     stateReducer: (newState, action) =>
