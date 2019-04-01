@@ -15,7 +15,7 @@ export function getCacheReducer({
   mapRequestType,
 }) {
   if (cacheBy !== undefined) {
-    const getCacheId = cacheBy === 'function' ? cacheBy : () => cacheBy
+    const getCacheId = typeof cacheBy === 'function' ? cacheBy : () => cacheBy
 
     if (mapRequestType === 'function') return cache.byArgs(getCacheId, {bucket})
 
