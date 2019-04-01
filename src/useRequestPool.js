@@ -3,7 +3,39 @@ import useDeepCompareEffect from 'use-deep-compare-effect'
 import defaultRequestStateReducer from './requestStateReducer'
 import useRequestReporter from './useRequestReporter'
 import useUpdatedRef from './useUpdatedRef'
-import {getCacheReducer, useCacheBucket} from './utils'
+import * as cache from './cache'
+
+const identity = state => state
+
+export function getCacheReducer({
+  cacheBy,
+  cacheByArgs,
+  cacheByParams,
+  bucket,
+  mapRequestType,
+}) {
+  if (cacheBy !== undefined) {
+    const getCacheId = typeof cacheBy === 'function' ? cacheBy : () => cacheBy
+
+    if (mapRequestType === 'function') return cache.byArgs(getCacheId, {bucket})
+
+    return cache.byParams(getCacheId, {bucket})
+  }
+
+  if (cacheByArgs) {
+    return cache.byArgs(cacheByArgs === true ? undefined : cacheByArgs, {
+      bucket,
+    })
+  }
+
+  if (cacheByParams) {
+    return cache.byArgs(cacheByParams === true ? undefined : cacheByParams, {
+      bucket,
+    })
+  }
+
+  return identity
+}
 
 export default function useRequest({
   auto = true,
@@ -13,16 +45,27 @@ export default function useRequest({
   cacheByParams = undefined,
   cacheByArgs = undefined,
   stateReducer = defaultRequestStateReducer,
-  concurrentRequests = false,
-  abort = requestState => requestState.abort(),
-  unsubscribe = requestState => requestState.unsubscribe(),
   ...params
 }) {
-  const abortRef = useUpdatedRef(abort)
-  const unsubscribeRef = useUpdatedRef(unsubscribe)
-  const concurrentRequestsRef = useUpdatedRef(concurrentRequests)
   const abortOnUnmountRef = useUpdatedRef(abortOnUnmount)
-  const bucket = useCacheBucket(cacheBucket)
+  const [localBucket] = React.useState(() => new Map(), [])
+  const bucket =
+    cacheBucket === 'local'
+      ? localBucket
+      : cacheBucket === 'global'
+      ? undefined
+      : cacheBucket
+
+  if (
+    (cacheBy !== undefined && cacheByArgs !== undefined) ||
+    (cacheBy !== undefined && cacheByParams !== undefined) ||
+    (cacheByArgs !== undefined && cacheByParams !== undefined)
+  ) {
+    throw new Error(
+      `You can't use cacheBy, cacheByParams and cacheByArgs simultaneosly, only one can be used at once.`,
+    )
+  }
+
   const mapRequest = params.request
   const mapRequestType = typeof mapRequest
   const finalCacheBy = getCacheReducer({
@@ -43,13 +86,10 @@ export default function useRequest({
   const requestRef = useUpdatedRef(
     React.useCallback(
       (...args) => {
-        if (concurrentRequestsRef.current === false) {
-          unsubscribeRef.current(stateRef.current)
-          abortRef.current(stateRef.current)
-        }
+        stateRef.current.unsubscribe()
         return performRequest(...args)
       },
-      [performRequest], // eslint-disable-line
+      [performRequest, stateRef],
     ),
   )
 
@@ -64,6 +104,7 @@ export default function useRequest({
   useDeepCompareEffect(() => {
     if (auto) {
       if (requestPayload.payload) {
+        stateRef.current.abort()
         requestRef.current(requestPayload.payload)
       }
     }
@@ -71,17 +112,17 @@ export default function useRequest({
 
   React.useEffect(() => {
     if (!auto) {
-      abort(stateRef.current)
+      stateRef.current.abort()
     }
-  }, [abort, auto, stateRef])
+  }, [auto, stateRef])
 
   React.useEffect(
     () => () => {
       if (abortOnUnmountRef.current) {
-        abortRef.current(stateRef.current)
+        stateRef.current.abort()
       }
     },
-    [], // eslint-disable-line
+    [abortOnUnmountRef, stateRef],
   )
 
   return [state, requestRef.current]

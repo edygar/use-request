@@ -103,12 +103,8 @@ export default function useRequestFactory({
    * function uses the latest values.
    */
   const stateReducerRef = useUpdatedRef(stateReducer)
-  const mapRequestRef = useUpdatedRef(mapRequest)
-  const mapResponseRef = useUpdatedRef(mapResponse)
-  const performRequestRef = useUpdatedRef(performRequest)
   const throwOnAbortionsRef = useUpdatedRef(throwOnAbortions)
   const throwOnRejectionsRef = useUpdatedRef(throwOnRejections)
-  const onStateChangeRef = useUpdatedRef(onStateChange)
 
   return React.useCallback(
     async function request(...args) {
@@ -132,9 +128,9 @@ export default function useRequestFactory({
           },
         })
 
-        const params = await (typeof mapRequestRef.current === 'function'
-          ? mapRequestRef.current(...args)
-          : mapRequestRef.current)
+        const params = await (typeof mapRequest.current === 'function'
+          ? mapRequest.current(...args)
+          : mapRequest.current)
 
         propagateChange({
           type: 'params_defined',
@@ -142,7 +138,7 @@ export default function useRequestFactory({
         })
 
         let abort
-        const requested = performRequestRef.current(state, aborter => {
+        const requested = performRequest.current(state, aborter => {
           abort = aborter
         })
 
@@ -170,7 +166,7 @@ export default function useRequestFactory({
           },
         })
 
-        const resolved = await mapResponseRef.current(state)
+        const resolved = await mapResponse.current(state)
 
         propagateChange({
           type: 'request_succeeded',
@@ -216,7 +212,7 @@ export default function useRequestFactory({
 
         state = stateReducerRef.current(state, action)
 
-        if (!unsubscribed) onStateChangeRef.current(state)
+        if (!unsubscribed) onStateChange.current(state)
 
         // Checks for abortions from the last onStateChange call
         if (aborted && !interruped)
@@ -224,14 +220,6 @@ export default function useRequestFactory({
       }
     },
     // All its dependencies are updated through refs
-    [
-      mapRequestRef,
-      mapResponseRef,
-      onStateChangeRef,
-      performRequestRef,
-      stateReducerRef,
-      throwOnAbortionsRef,
-      throwOnRejectionsRef,
-    ],
-  ) // eslint-disable-line
+    [onStateChange], // eslint-disable-line
+  )
 }

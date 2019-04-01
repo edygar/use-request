@@ -1,6 +1,7 @@
 import React from 'react'
 import useRequestFactory from './useRequestFactory'
 import useUpdatedRef from './useUpdatedRef'
+import {identity} from './utils'
 
 export const idleState = {
   pending: false,
@@ -11,19 +12,22 @@ export const idleState = {
 
 export default function useRequestReporter({
   onStateChange = () => {},
+  requestReport = identity,
   ...useRequestParams
 }) {
   const [currentState, setState] = React.useState(idleState)
+  const currentStateRef = useUpdatedRef(currentState)
   const onStateChangeRef = useUpdatedRef(onStateChange)
 
   const request = useRequestFactory({
     ...useRequestParams,
     onStateChange: React.useCallback(
       newState => {
-        setState(newState)
-        onStateChangeRef.current(newState)
+        const report = requestReport(newState)
+        setState(report)
+        onStateChangeRef.current(currentStateRef.current)
       },
-      [onStateChangeRef],
+      [requestReport], // eslint-disable-line
     ),
   })
 
