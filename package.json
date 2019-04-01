@@ -2,8 +2,8 @@
   "name": "@edygar/use-request",
   "version": "0.0.1",
   "description": "Provides a handle set of hooks and components to facilitate performing requests using React.",
-  "main": "dist/index.cjs.js",
-  "module": "dist/index.esm.js",
+  "main": "dist/@edygar/index.cjs.js",
+  "module": "dist/@edygar/index.esm.js",
   "engines": {
     "node": "> 4",
     "npm": "> 3"
