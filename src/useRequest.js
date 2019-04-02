@@ -71,9 +71,9 @@ export default function useRequest({
 
   React.useEffect(() => {
     if (!auto) {
-      abort(stateRef.current)
+      abortRef.current(stateRef.current)
     }
-  }, [abort, auto, stateRef])
+  }, [auto]) // eslint-disable-line
 
   React.useEffect(
     () => () => {
