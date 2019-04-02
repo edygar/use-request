@@ -102,9 +102,13 @@ export default function useRequestFactory({
    * with new values, they are updated and a on going async
    * function uses the latest values.
    */
-  const stateReducerRef = useUpdatedRef(stateReducer)
+  const mapRequestRef = useUpdatedRef(mapRequest)
+  const mapResponseRef = useUpdatedRef(mapResponse)
+  const performRequestRef = useUpdatedRef(performRequest)
   const throwOnAbortionsRef = useUpdatedRef(throwOnAbortions)
   const throwOnRejectionsRef = useUpdatedRef(throwOnRejections)
+  const onStateChangeRef = useUpdatedRef(onStateChange)
+  const stateReducerRef = useUpdatedRef(stateReducer)
 
   return React.useCallback(
     async function request(...args) {
@@ -128,9 +132,9 @@ export default function useRequestFactory({
           },
         })
 
-        const params = await (typeof mapRequest.current === 'function'
-          ? mapRequest.current(...args)
-          : mapRequest.current)
+        const params = await (typeof mapRequestRef.current === 'function'
+          ? mapRequestRef.current(...args)
+          : mapRequestRef.current)
 
         propagateChange({
           type: 'params_defined',
@@ -138,7 +142,7 @@ export default function useRequestFactory({
         })
 
         let abort
-        const requested = performRequest.current(state, aborter => {
+        const requested = performRequestRef.current(state, aborter => {
           abort = aborter
         })
 
@@ -166,7 +170,7 @@ export default function useRequestFactory({
           },
         })
 
-        const resolved = await mapResponse.current(state)
+        const resolved = await mapResponseRef.current(state)
 
         propagateChange({
           type: 'request_succeeded',
@@ -212,14 +216,13 @@ export default function useRequestFactory({
 
         state = stateReducerRef.current(state, action)
 
-        if (!unsubscribed) onStateChange.current(state)
+        if (!unsubscribed) onStateChangeRef.current(state)
 
         // Checks for abortions from the last onStateChange call
         if (aborted && !interruped)
           throw new AbortError('The operation was aborted.')
       }
     },
-    // All its dependencies are updated through refs
-    [onStateChange], // eslint-disable-line
+    [], // eslint-disable-line
   )
 }

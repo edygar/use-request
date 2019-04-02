@@ -40,7 +40,7 @@ export default function useRequestReporter({
           onStateChangeRef.current(idleState)
         },
       }),
-      [currentState, onStateChangeRef],
+      [currentState], // eslint-disable-line
     ),
     request,
   ]
