@@ -174,8 +174,6 @@ export function useRequestInitiator({
           type: 'request_succeeded',
           payload: resolved,
         })
-
-        return state
       } catch (rejected) {
         if (rejected instanceof Error && rejected.name === 'AbortError') {
           dispatch({
@@ -184,19 +182,17 @@ export function useRequestInitiator({
           })
 
           if (throwOnAbortionsRef.current) throw state
+        } else {
+          dispatch({
+            type: 'request_failed',
+            payload: rejected,
+          })
 
-          return state
+          if (throwOnRejectionsRef.current) throw state
         }
-
-        dispatch({
-          type: 'request_failed',
-          payload: rejected,
-        })
-
-        if (throwOnRejectionsRef.current) throw state
-
-        return state
       }
+
+      return state
 
       function dispatch(action) {
         state = stateReducerRef.current(state, action)

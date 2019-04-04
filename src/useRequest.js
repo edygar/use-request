@@ -62,33 +62,38 @@ export function useRequest({
   const performRequest = useRequestInitiator({
     ...params,
     onChange: applyCachePolicy((state, helpers) => {
-      updateMap(map => {
-        map.set(state.requestId, {
-          ...state,
-          ...helpers,
-          release: release.bind(state.requestId),
-          repeat: () => performRequest(...state.args),
-        })
+      if (
+        !requestsMapRef.current.has(state.requestId) &&
+        state.status !== 'init'
+      )
+        return
+
+      requestsMapRef.current.set(state.requestId, {
+        ...state,
+        ...helpers,
+        release: release.bind(state.requestId),
+        repeat: () => performRequest(...state.args),
       })
+
+      updateMap()
     }),
   })
 
   const releaseExceeded = React.useCallback(
-    () =>
-      updateMap(map => {
-        const limit =
-          concurrentRequestsRef.current === true
-            ? Infinity
-            : parseInt(concurrentRequestsRef.current, 10)
+    () => {
+      const limit =
+        concurrentRequestsRef.current === true
+          ? Infinity
+          : parseInt(concurrentRequestsRef.current, 10)
 
-        if (map.size > limit) {
-          let toRemove = map.size - limit
-          for (const [, requestState] of map.entries()) {
-            requestState.release()
-            if (!toRemove--) break
-          }
+      if (requestsMapRef.current.size > limit) {
+        let toRemove = requestsMapRef.current.size - limit
+        for (const [, requestState] of requestsMapRef.current.entries()) {
+          requestState.release()
+          if (!toRemove--) break
         }
-      }),
+      }
+    },
     [], // eslint-disable-line
   )
 
@@ -108,6 +113,7 @@ export function useRequest({
         requestRef.current(params.request)
       } else {
         releaseExceeded()
+        updateMap()
       }
     }
   }, [params.request])

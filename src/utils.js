@@ -9,7 +9,7 @@ export function useStateMap(initialState) {
   return [
     state,
     stateUpdate => {
-      stateUpdate(state.current)
+      if (stateUpdate) stateUpdate(state.current)
       setState({current: state.current})
     },
   ]
