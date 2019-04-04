@@ -1,6 +1,6 @@
 import React from 'react'
 import {useUpdatedRef} from './utils'
-import requestStateReducer from './requestStateReducer'
+import {requestStateReducer} from './requestStateReducer'
 import AbortError from './AbortError'
 
 /**
@@ -92,7 +92,7 @@ export async function defaultMapResponse(requestState /* { setProgress } */) {
  *
  * @return {Function} request initiator
  */
-export default function useRequestInitiator({
+export function useRequestInitiator({
   throwOnAbortions = false,
   throwOnRejections = false,
   onChange = () => {},

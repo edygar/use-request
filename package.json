@@ -58,5 +58,15 @@
   "bugs": {
     "url": "https://github.com/edygar/use-request/issues"
   },
+  "jest": {
+    "coverageThreshold": {
+      "global": {
+        "branches": 0,
+        "functions": 0,
+        "lines": 0,
+        "statements": 0
+      }
+    }
+  },
   "homepage": "https://github.com/edygar/use-request#readme"
 }

@@ -1,6 +1,6 @@
 import React from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
-import useRequestInitiator from './useRequestInitiator'
+import {useRequestInitiator} from './useRequestInitiator'
 import {
   getCacheReducer,
   useCacheBucket,
@@ -18,7 +18,7 @@ import {
  *
  *    The second position is the requestInitiator bound to this manager
  */
-export default function useRequest({
+export function useRequest({
   abortOnUnmount = false,
   abortOnRelease = true,
   cacheBucket = 'local',
