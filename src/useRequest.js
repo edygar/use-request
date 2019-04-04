@@ -1,88 +1,132 @@
 import React from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
-import defaultRequestStateReducer from './requestStateReducer'
-import useRequestReporter from './useRequestReporter'
-import useUpdatedRef from './useUpdatedRef'
-import {getCacheReducer, useCacheBucket} from './utils'
+import useRequestInitiator from './useRequestInitiator'
+import {
+  getCacheReducer,
+  useCacheBucket,
+  useUpdatedRef,
+  useStateMap,
+} from './utils'
 
+/**
+ * Provides all ongoing requests hosted by this hook and a method to
+ * request more.
+ *
+ * @returns {Array} RequestState(s) and RequestInitiator, consecutively.
+ *    In case of falsy {@param concurrentRequests}, first item is the single RequestState
+ *    Otherwise, first item is an array of the current requests.
+ *
+ *    The second position is the requestInitiator bound to this manager
+ */
 export default function useRequest({
-  auto = true,
   abortOnUnmount = false,
+  abortOnRelease = true,
   cacheBucket = 'local',
   cacheBy = undefined,
   cacheByParams = undefined,
   cacheByArgs = undefined,
-  stateReducer = defaultRequestStateReducer,
   concurrentRequests = false,
-  abort = requestState => requestState.abort(),
-  unsubscribe = requestState => requestState.unsubscribe(),
   ...params
 }) {
-  const abortRef = useUpdatedRef(abort)
-  const unsubscribeRef = useUpdatedRef(unsubscribe)
   const concurrentRequestsRef = useUpdatedRef(concurrentRequests)
+  const abortOnReleaseRef = useUpdatedRef(abortOnRelease)
   const abortOnUnmountRef = useUpdatedRef(abortOnUnmount)
   const bucket = useCacheBucket(cacheBucket)
   const mapRequest = params.request
   const mapRequestType = typeof mapRequest
-  const finalCacheBy = getCacheReducer({
-    cacheBy,
-    cacheByArgs,
-    cacheByParams,
-    mapRequestType,
-    bucket,
+  const [requestsMapRef, updateMap] = useStateMap()
+
+  const applyCachePolicy = React.useMemo(
+    () =>
+      getCacheReducer({
+        cacheBy,
+        cacheByArgs,
+        cacheByParams,
+        mapRequestType,
+        bucket,
+      }),
+    [cacheBy, cacheByArgs, cacheByParams, mapRequestType, bucket],
+  )
+
+  function release(requestId) {
+    updateMap(map => {
+      const requestState = map.get(requestId)
+      if (abortOnReleaseRef.current) {
+        requestState.abort()
+      }
+
+      map.delete(requestId)
+    })
+  }
+
+  const performRequest = useRequestInitiator({
+    ...params,
+    onChange: applyCachePolicy((state, helpers) => {
+      updateMap(map => {
+        map.set(state.requestId, {
+          ...state,
+          ...helpers,
+          release: release.bind(state.requestId),
+          repeat: () => performRequest(...state.args),
+        })
+      })
+    }),
   })
 
-  const [state, performRequest] = useRequestReporter({
-    ...params,
-    stateReducer: (newState, action) =>
-      stateReducer(finalCacheBy(newState, action), action),
-  })
-  const stateRef = useUpdatedRef(state)
+  const releaseExceeded = React.useCallback(
+    () =>
+      updateMap(map => {
+        const limit =
+          concurrentRequestsRef.current === true
+            ? Infinity
+            : parseInt(concurrentRequestsRef.current, 10)
+
+        if (map.size > limit) {
+          let toRemove = map.size - limit
+          for (const [, requestState] of map.entries()) {
+            requestState.release()
+            if (!toRemove--) break
+          }
+        }
+      }),
+    [], // eslint-disable-line
+  )
 
   const requestRef = useUpdatedRef(
     React.useCallback(
       (...args) => {
-        if (concurrentRequestsRef.current === false) {
-          unsubscribeRef.current(stateRef.current)
-          abortRef.current(stateRef.current)
-        }
+        releaseExceeded()
         return performRequest(...args)
       },
-      [performRequest], // eslint-disable-line
+      [performRequest, updateMap], // eslint-disable-line react-hooks/exhaustive-deps
     ),
   )
 
-  const requestPayload = React.useMemo(
-    () => ({
-      payload:
-        auto && typeof mapRequest === 'function' ? mapRequest() : mapRequest,
-    }),
-    [auto, mapRequest],
-  )
-
   useDeepCompareEffect(() => {
-    if (auto) {
-      if (requestPayload.payload) {
-        requestRef.current(requestPayload.payload)
+    if (typeof params.request === 'function') {
+      if (params.request) {
+        requestRef.current(params.request)
+      } else {
+        releaseExceeded()
       }
     }
-  }, [requestPayload, auto])
-
-  React.useEffect(() => {
-    if (!auto) {
-      abortRef.current(stateRef.current)
-    }
-  }, [auto]) // eslint-disable-line
+  }, [params.request])
 
   React.useEffect(
     () => () => {
       if (abortOnUnmountRef.current) {
-        abortRef.current(stateRef.current)
+        for (const [, requestState] of requestsMapRef.current.entries()) {
+          requestState.abort()
+        }
       }
     },
     [], // eslint-disable-line
   )
 
-  return [state, requestRef.current]
+  return [
+    concurrentRequests === false
+      ? Array.from(requestsMapRef.current)[requestsMapRef.current.size - 1]
+      : Array.from(requestsMapRef.current.values()),
+    requestRef.current,
+  ]
 }

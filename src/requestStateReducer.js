@@ -4,14 +4,35 @@ export default function requestStateReducer(state = {}, {type, payload}) {
       return {
         ...state,
         pending: true,
-        status: 'pending',
+        status: 'init',
         ...payload,
+      }
+
+    case 'progress':
+      return {
+        ...state,
+        progress: payload,
       }
 
     case 'params_defined':
       return {
         ...state,
+        status: 'prepared',
         params: payload,
+      }
+
+    case 'request_sent':
+      return {
+        ...state,
+        requested: payload,
+        status: 'requested',
+      }
+
+    case 'response_received':
+      return {
+        ...state,
+        responded: payload,
+        status: 'resolved',
       }
 
     case 'request_succeeded':
@@ -19,23 +40,22 @@ export default function requestStateReducer(state = {}, {type, payload}) {
         ...state,
         status: 'resolved',
         pending: false,
-        ...payload,
+        resolved: payload,
       }
 
-    case 'request_aborted':
+    case 'request_aborted': {
       return {
-        ...state,
         status: 'aborted',
         pending: false,
-        ...payload,
       }
+    }
 
     case 'request_failed':
       return {
         ...state,
         status: 'rejected',
         pending: false,
-        ...payload,
+        rejected: payload,
       }
 
     default:

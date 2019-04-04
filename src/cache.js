@@ -1,5 +1,3 @@
-import requestStateReducer from './requestStateReducer'
-
 export const bucket = new Map()
 
 /**
@@ -21,7 +19,7 @@ export function defaultGetCachedIdByParams(params) {
  *
  * @return {String} the cache id
  */
-export function defaultGetCachedId(...args) {
+export function defaultGetCachedIdByArgs(...args) {
   return JSON.stringify(args)
 }
 
@@ -34,25 +32,33 @@ export function defaultGetCachedId(...args) {
  */
 export function byParams(
   getCacheId = defaultGetCachedIdByParams,
-  {bucket: localBucket = bucket} = {},
+  {fetchPolicy = 'cache-first', bucket: localBucket = bucket} = {},
 ) {
-  return (state, action) => {
-    const newState = requestStateReducer(state, action)
+  return onChange => (state, helpers) => {
+    if (state.status === 'aborted' && 'resolved' in state) {
+      onChange({...state, status: 'resolved'}, helpers)
+    }
 
-    if (action.type === 'params_defined') {
-      const cacheId = getCacheId(action.payload)
+    if (state.status === 'parameterized' && fetchPolicy.match(/(?!no-)cache/)) {
+      const cacheId = getCacheId(state)
       if (cacheId !== null && localBucket.has(cacheId)) {
         const fromCache = localBucket.get(cacheId)
-        return {...fromCache, ...newState}
+
+        if (fetchPolicy === 'cache-only') {
+          helpers.abort()
+        }
+
+        onChange({...fromCache, ...state, status: 'resolved'}, helpers)
+        return
       }
     }
 
-    if (action.type === 'request_succeeded') {
-      const cacheId = getCacheId(newState.params)
-      localBucket.set(cacheId, newState)
+    if (state.status === 'resolved') {
+      const cacheId = getCacheId(state.params)
+      localBucket.set(cacheId, state)
     }
 
-    return newState
+    onChange(state, helpers)
   }
 }
 
@@ -64,24 +70,33 @@ export function byParams(
  * @returns {Function} the resulting stateReducerFn
  */
 export function byArgs(
-  getCacheId = defaultGetCachedId,
-  {bucket: localBucket = bucket} = {},
+  getCacheId = defaultGetCachedIdByArgs,
+  {fetchPolicy = 'cache-first', bucket: localBucket = bucket} = {},
 ) {
-  return (state, action) => {
-    const newState = requestStateReducer(state, action)
+  return onChange => (state, helpers) => {
+    if (state.status === 'aborted' && 'resolved' in state) {
+      onChange({...state, status: 'resolved'}, helpers)
+    }
 
-    if (action.type === 'init') {
-      const cacheId = getCacheId(...action.payload.args)
+    if (state.status === 'parameterized' && fetchPolicy.match(/(?!no-)cache/)) {
+      const cacheId = getCacheId(state)
       if (cacheId !== null && localBucket.has(cacheId)) {
-        // defines already from cache
-        return {...localBucket.get(cacheId), ...newState}
+        const fromCache = localBucket.get(cacheId)
+
+        if (fetchPolicy === 'cache-only') {
+          helpers.abort()
+        }
+
+        onChange({...fromCache, ...state, status: 'resolved'}, helpers)
+        return
       }
     }
 
-    if (action.type === 'request_succeeded') {
-      localBucket.set(getCacheId(...newState.args), newState)
+    if (state.status === 'resolved') {
+      const cacheId = getCacheId(state.args)
+      localBucket.set(cacheId, state)
     }
 
-    return newState
+    onChange(state, helpers)
   }
 }

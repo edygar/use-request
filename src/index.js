@@ -1,9 +1,9 @@
 import useRequest from './useRequest'
 
 export default useRequest
-export * from './cache'
-export * from './useRequestFactory'
-export {default as useRequestFactory} from './useRequestFactory'
-export {default as useRequestReporter} from './useRequestReporter'
-export {default as useUpdatedRef} from './useUpdatedRef'
+
+export * as cache from './cache'
+export * from './useRequestInitiator'
+export {default as useRequestInitiator} from './useRequestInitiator'
+export {default as useRequest} from './useRequest'
 export {default as Request} from './Request'

@@ -1,5 +1,5 @@
 import React from 'react'
-import useUpdatedRef from './useUpdatedRef'
+import {useUpdatedRef} from './utils'
 import requestStateReducer from './requestStateReducer'
 import AbortError from './AbortError'
 
@@ -16,11 +16,15 @@ import AbortError from './AbortError'
  *
  * @param {Object} requestState the current request state
  * @param {Request} requestState.params Definition for the request, including the url and fetch options
- * @param {Function} registerAborter Callback to set the aborter function
+ * @param {Function} params.registerAborter Callback to set the aborter function
+ * @param {Function} params.setProgress Communicates intermediate progress
  *
  * @return {Promise<Response>} the future response
  */
-export function defaultPerformRequest(requestState, registerAborter) {
+export function defaultPerformRequest(
+  requestState,
+  {/* setProgress, */ registerAborter},
+) {
   if (!requestState.params) {
     throw new Error('useRequest: Invalid request parameters.')
   }
@@ -54,7 +58,7 @@ export function defaultMapRequest(fetchOptions) {
  *
  * @param {Object} requestState the current state of the request
  */
-export async function defaultMapResponse(requestState) {
+export async function defaultMapResponse(requestState /* { setProgress } */) {
   const parsed = await requestState.responded.json()
 
   if (!requestState.responded.ok) {
@@ -76,7 +80,7 @@ export async function defaultMapResponse(requestState) {
  * @param {Boolean} throwOnAbortions whether the promise rejects on abortions.
  * @param {Boolean} throwOnRejections whether the promise rejects at all, it's
  *      usefull when the promises are not being used to control flow.
- * @param {Function} onStateChange called at each request state change
+ * @param {Function} onChange called at each request state change
  * @param {Function|Object} request Object representing the parameters to
  *      perform request or a function that produces it from the arguments
  *      of the last call.
@@ -88,10 +92,10 @@ export async function defaultMapResponse(requestState) {
  *
  * @return {Function} request initiator
  */
-export default function useRequestFactory({
+export default function useRequestInitiator({
   throwOnAbortions = false,
   throwOnRejections = false,
-  onStateChange = () => {},
+  onChange = () => {},
   request: mapRequest = payload => payload,
   response: mapResponse = defaultMapResponse,
   perform: performRequest = defaultPerformRequest,
@@ -102,106 +106,91 @@ export default function useRequestFactory({
    * with new values, they are updated and a on going async
    * function uses the latest values.
    */
+  const counterRef = React.useRef(0)
   const mapRequestRef = useUpdatedRef(mapRequest)
   const mapResponseRef = useUpdatedRef(mapResponse)
   const performRequestRef = useUpdatedRef(performRequest)
   const throwOnAbortionsRef = useUpdatedRef(throwOnAbortions)
   const throwOnRejectionsRef = useUpdatedRef(throwOnRejections)
-  const onStateChangeRef = useUpdatedRef(onStateChange)
+  const onChangeRef = useUpdatedRef(onChange)
   const stateReducerRef = useUpdatedRef(stateReducer)
 
   return React.useCallback(
     async function request(...args) {
-      let aborted = false
-      let interruped = false
-      let unsubscribed = false
-      let state
-      const requestArgs = args
+      let state, abort, onAbort
+      const abortation = new Promise((_, reject) => {
+        abort = () => {
+          if (onAbort) onAbort()
+          reject(new AbortError('The operation was aborted.'))
+        }
+      })
 
       try {
-        propagateChange({
+        dispatch({
           type: 'init',
           payload: {
-            unsubscribe() {
-              unsubscribed = true
-            },
-            abort() {
-              aborted = true
-            },
-            args: requestArgs,
+            requestId: Symbol(counterRef.current++),
+            args,
           },
         })
 
-        const params = await (typeof mapRequestRef.current === 'function'
-          ? mapRequestRef.current(...args)
-          : mapRequestRef.current)
+        const params = await Promise.race([
+          abortation,
+          typeof mapRequestRef.current === 'function'
+            ? mapRequestRef.current(...args)
+            : mapRequestRef.current,
+        ])
 
-        propagateChange({
+        dispatch({
           type: 'params_defined',
           payload: params,
         })
 
-        let abort
-        const requested = performRequestRef.current(state, aborter => {
-          abort = aborter
+        const requested = performRequestRef.current(state, {
+          setProgress,
+          registerAborter: providedAborter => {
+            onAbort = providedAborter
+          },
         })
 
-        propagateChange({
+        dispatch({
           type: 'request_sent',
-          payload: {
-            requested,
-            abort() {
-              abort()
-              aborted = true
-            },
-          },
+          payload: requested,
         })
 
-        const responded = await requested
+        const responded = await Promise.race([abortation, requested])
 
-        propagateChange({
+        dispatch({
           type: 'response_received',
-          payload: {
-            requested,
-            responded,
-            abort() {
-              aborted = true
-            },
-          },
+          payload: responded,
         })
 
-        const resolved = await mapResponseRef.current(state)
+        const resolved = await Promise.race([
+          abortation,
+          mapResponseRef.current(state, {setProgress}),
+        ])
 
-        propagateChange({
+        dispatch({
           type: 'request_succeeded',
-          payload: {
-            resolved,
-            abort() {},
-          },
+          payload: resolved,
         })
 
         return state
       } catch (rejected) {
-        interruped = true
         if (rejected instanceof Error && rejected.name === 'AbortError') {
-          propagateChange({
+          dispatch({
             type: 'request_aborted',
-            payload: {
-              rejected,
-              abort() {},
-            },
+            payload: rejected,
           })
+
           if (throwOnAbortionsRef.current) throw state
 
           return state
         }
 
-        propagateChange({
+        dispatch({
           type: 'request_failed',
-          payload: {
-            rejected,
-            abort() {},
-          },
+          payload: rejected,
         })
 
         if (throwOnRejectionsRef.current) throw state
@@ -209,20 +198,23 @@ export default function useRequestFactory({
         return state
       }
 
-      function propagateChange(action) {
-        // Checks for abortions from the last life cycle update
-        if (aborted && !interruped)
-          throw new AbortError('The operation was aborted.')
-
+      function dispatch(action) {
         state = stateReducerRef.current(state, action)
+        onChangeRef.current(state, {abort, setProgress})
+      }
 
-        if (!unsubscribed) onStateChangeRef.current(state)
-
-        // Checks for abortions from the last onStateChange call
-        if (aborted && !interruped)
-          throw new AbortError('The operation was aborted.')
+      function setProgress(payload) {
+        dispatch({
+          type: 'progress',
+          payload,
+        })
       }
     },
+    /**
+     * The callback doesn't ever change, as the hook params
+     * are consumed as refs, once they need to be always
+     * up-to-date
+     */
     [], // eslint-disable-line
   )
 }
