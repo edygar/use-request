@@ -3,7 +3,10 @@ import * as cache from './cache'
 
 export function useStateMap(initialState) {
   const [state, setState] = React.useState(() => ({
-    current: typeof initialState === 'function' ? initialState() : initialState,
+    current:
+      typeof initialState === 'function'
+        ? initialState()
+        : initialState || new Map(),
   }))
 
   return [

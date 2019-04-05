@@ -8,6 +8,13 @@ import {
   useStateMap,
 } from './utils'
 
+const idleState = {
+  status: 'idle',
+  pending: false,
+  release() {},
+  abort() {},
+}
+
 /**
  * Provides all ongoing requests hosted by this hook and a method to
  * request more.
@@ -131,7 +138,8 @@ export function useRequest({
 
   return [
     concurrentRequests === false
-      ? Array.from(requestsMapRef.current)[requestsMapRef.current.size - 1]
+      ? Array.from(requestsMapRef.current)[requestsMapRef.current.size - 1] ||
+        idleState
       : Array.from(requestsMapRef.current.values()),
     requestRef.current,
   ]
