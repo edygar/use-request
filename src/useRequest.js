@@ -115,7 +115,7 @@ export function useRequest({
   )
 
   useDeepCompareEffect(() => {
-    if (typeof params.request === 'function') {
+    if (typeof params.request !== 'function') {
       if (params.request) {
         requestRef.current(params.request)
       } else {
