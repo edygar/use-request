@@ -40,7 +40,7 @@ export function byParams(
     }
 
     if (state.status === 'parameterized' && fetchPolicy.match(/(?!no-)cache/)) {
-      const cacheId = getCacheId(state)
+      const cacheId = getCacheId(state.params)
       if (cacheId !== null && localBucket.has(cacheId)) {
         const fromCache = localBucket.get(cacheId)
 
@@ -79,7 +79,7 @@ export function byArgs(
     }
 
     if (state.status === 'parameterized' && fetchPolicy.match(/(?!no-)cache/)) {
-      const cacheId = getCacheId(state)
+      const cacheId = getCacheId(...state.args)
       if (cacheId !== null && localBucket.has(cacheId)) {
         const fromCache = localBucket.get(cacheId)
 
@@ -93,7 +93,7 @@ export function byArgs(
     }
 
     if (state.status === 'resolved') {
-      const cacheId = getCacheId(state.args)
+      const cacheId = getCacheId(...state.args)
       localBucket.set(cacheId, state)
     }
 
