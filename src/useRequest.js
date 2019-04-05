@@ -138,8 +138,9 @@ export function useRequest({
 
   return [
     concurrentRequests === false
-      ? Array.from(requestsMapRef.current)[requestsMapRef.current.size - 1] ||
-        idleState
+      ? Array.from(requestsMapRef.current.values())[
+          requestsMapRef.current.size - 1
+        ] || idleState
       : Array.from(requestsMapRef.current.values()),
     requestRef.current,
   ]
