@@ -2,7 +2,7 @@ import React from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import {useRequestInitiator} from './useRequestInitiator'
 import {
-  getCacheReducer,
+  getCacheResolver,
   useCacheBucket,
   useUpdatedRef,
   useStateMap,
@@ -33,6 +33,7 @@ export function useRequest({
   cacheByParams = undefined,
   cacheByArgs = undefined,
   concurrentRequests = false,
+  fetchPolicy,
   ...params
 }) {
   const concurrentRequestsRef = useUpdatedRef(concurrentRequests)
@@ -43,20 +44,18 @@ export function useRequest({
   const mapRequestType = typeof mapRequest
   const [requestsMapRef, updateMap] = useStateMap()
 
-  const applyCachePolicy = React.useMemo(
-    () =>
-      getCacheReducer({
-        cacheBy,
-        cacheByArgs,
-        cacheByParams,
-        mapRequestType,
-        bucket,
-      }),
-    [cacheBy, cacheByArgs, cacheByParams, mapRequestType, bucket],
-  )
+  const applyCachePolicy = getCacheResolver({
+    fetchPolicy,
+    cacheBy,
+    cacheByArgs,
+    cacheByParams,
+    mapRequestType,
+    bucket,
+  })
 
   function release(requestId) {
     updateMap(map => {
+      if (!map.has(requestId)) return
       const requestState = map.get(requestId)
       if (abortOnReleaseRef.current) {
         requestState.abort()
@@ -71,14 +70,16 @@ export function useRequest({
     onChange: applyCachePolicy((state, helpers) => {
       if (
         !requestsMapRef.current.has(state.requestId) &&
+        state.status !== 'resolved' &&
         state.status !== 'init'
       )
         return
 
       requestsMapRef.current.set(state.requestId, {
+        ...(requestsMapRef.current.get(state.requestId) || {}),
         ...state,
         ...helpers,
-        release: release.bind(state.requestId),
+        release: release.bind(null, state.requestId),
         repeat: () => performRequest(...state.args),
       })
 
@@ -91,7 +92,7 @@ export function useRequest({
       const limit =
         concurrentRequestsRef.current === true
           ? Infinity
-          : parseInt(concurrentRequestsRef.current, 10)
+          : parseInt(concurrentRequestsRef.current || 0, 10)
 
       if (requestsMapRef.current.size > limit) {
         let toRemove = requestsMapRef.current.size - limit
@@ -123,7 +124,7 @@ export function useRequest({
         updateMap()
       }
     }
-  }, [params.request])
+  }, [{request: params.request}])
 
   React.useEffect(
     () => () => {

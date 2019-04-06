@@ -1,11 +1,10 @@
 import React from 'react'
-import {useUpdatedRef} from './utils'
+import {useUpdatedRef, identity, reject} from './utils'
 import {requestStateReducer} from './requestStateReducer'
 import AbortError from './AbortError'
 
 /**
  * Default function for performing the request at `useRequest`.
- *
  * It uses the native `fetch` with native `AbortController`
  * so polyfill according to your requirements.  Assumes `url`
  * as part of the `fetchParams`
@@ -69,6 +68,17 @@ export async function defaultMapResponse(requestState /* { setProgress } */) {
 }
 
 /**
+ * Make sure to schedule one microtask after "arg" execution
+ * so if there's an abortion in its running, it wins the race
+ *
+ * @param {any} arg Any value to be projected to the last microtask
+ * @return {Promise} a Promise with 2 steps
+ */
+function thenOnce(arg) {
+  return Promise.resolve(arg).then(identity)
+}
+
+/**
  * Produces a callback that makes Requests, returning a Promise with
  * the last state, either a resolvution or rejection.
  *
@@ -118,15 +128,18 @@ export function useRequestInitiator({
   return React.useCallback(
     async function request(...args) {
       let state, abort, onAbort
-      const abortation = new Promise((_, reject) => {
+      let requestEnded = false
+
+      const abortion = new Promise(resolve => {
         abort = () => {
+          if (requestEnded) return
           if (onAbort) onAbort()
-          reject(new AbortError('The operation was aborted.'))
+          resolve(new AbortError('The operation was aborted.'))
         }
       })
 
       try {
-        dispatch({
+        await dispatch({
           type: 'init',
           payload: {
             requestId: Symbol(counterRef.current++),
@@ -135,13 +148,15 @@ export function useRequestInitiator({
         })
 
         const params = await Promise.race([
-          abortation,
-          typeof mapRequestRef.current === 'function'
-            ? mapRequestRef.current(...args)
-            : mapRequestRef.current,
+          abortion.then(reject),
+          thenOnce(
+            typeof mapRequestRef.current === 'function'
+              ? mapRequestRef.current(...args)
+              : mapRequestRef.current,
+          ),
         ])
 
-        dispatch({
+        await dispatch({
           type: 'params_defined',
           payload: params,
         })
@@ -153,28 +168,30 @@ export function useRequestInitiator({
           },
         })
 
-        dispatch({
+        await dispatch({
           type: 'request_sent',
           payload: requested,
         })
 
-        const responded = await Promise.race([abortation, requested])
+        const responded = await Promise.race([abortion.then(reject), requested])
+        requestEnded = true
 
-        dispatch({
+        await dispatch({
           type: 'response_received',
           payload: responded,
         })
 
         const resolved = await Promise.race([
-          abortation,
-          mapResponseRef.current(state, {setProgress}),
+          abortion.then(reject),
+          thenOnce(mapResponseRef.current(state, {setProgress})),
         ])
 
-        dispatch({
+        await dispatch({
           type: 'request_succeeded',
           payload: resolved,
         })
       } catch (rejected) {
+        requestEnded = true
         if (rejected instanceof Error && rejected.name === 'AbortError') {
           dispatch({
             type: 'request_aborted',
@@ -196,7 +213,15 @@ export function useRequestInitiator({
 
       function dispatch(action) {
         state = stateReducerRef.current(state, action)
-        onChangeRef.current(state, {abort, setProgress})
+
+        if (requestEnded) {
+          return onChangeRef.current(state, {abort, setProgress})
+        }
+
+        return Promise.race([
+          abortion.then(reject),
+          thenOnce(onChangeRef.current(state, {abort, setProgress})),
+        ])
       }
 
       function setProgress(payload) {

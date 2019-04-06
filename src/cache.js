@@ -39,16 +39,17 @@ export function byParams(
       onChange({...state, status: 'resolved'}, helpers)
     }
 
-    if (state.status === 'parameterized' && fetchPolicy.match(/(?!no-)cache/)) {
+    if (state.status === 'prepared' && fetchPolicy.match(/(?!no-)cache/)) {
       const cacheId = getCacheId(state.params)
       if (cacheId !== null && localBucket.has(cacheId)) {
         const fromCache = localBucket.get(cacheId)
 
-        if (fetchPolicy === 'cache-only') {
-          helpers.abort()
+        if (fetchPolicy !== 'cache-only') {
+          onChange({...fromCache, ...state, status: 'resolved'}, helpers)
         }
 
-        onChange({...fromCache, ...state, status: 'resolved'}, helpers)
+        helpers.abort()
+        onChange({...fromCache, requestId: state.requestId}, helpers)
         return
       }
     }
@@ -78,16 +79,17 @@ export function byArgs(
       onChange({...state, status: 'resolved'}, helpers)
     }
 
-    if (state.status === 'parameterized' && fetchPolicy.match(/(?!no-)cache/)) {
+    if (state.status === 'init' && fetchPolicy.match(/(?!no-)cache/)) {
       const cacheId = getCacheId(...state.args)
       if (cacheId !== null && localBucket.has(cacheId)) {
         const fromCache = localBucket.get(cacheId)
 
-        if (fetchPolicy === 'cache-only') {
-          helpers.abort()
+        if (fetchPolicy !== 'cache-only') {
+          onChange({...fromCache, ...state, status: 'resolved'}, helpers)
         }
 
-        onChange({...fromCache, ...state, status: 'resolved'}, helpers)
+        helpers.abort()
+        onChange({...fromCache, requestId: state.requestId}, helpers)
         return
       }
     }

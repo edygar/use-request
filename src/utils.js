@@ -44,12 +44,17 @@ export function identity(value) {
   return value
 }
 
-export function getCacheReducer({
+export function reject(e) {
+  throw e
+}
+
+export function getCacheResolver({
   cacheBy,
   cacheByArgs,
   cacheByParams,
   bucket,
   mapRequestType,
+  fetchPolicy,
 }) {
   if (
     (cacheBy !== undefined && cacheByArgs !== undefined) ||
@@ -64,20 +69,23 @@ export function getCacheReducer({
   if (cacheBy !== undefined) {
     const getCacheId = typeof cacheBy === 'function' ? cacheBy : () => cacheBy
 
-    if (mapRequestType === 'function') return cache.byArgs(getCacheId, {bucket})
+    if (mapRequestType === 'function')
+      return cache.byArgs(getCacheId, {bucket, fetchPolicy})
 
-    return cache.byParams(getCacheId, {bucket})
+    return cache.byParams(getCacheId, {bucket, fetchPolicy})
   }
 
   if (cacheByArgs) {
     return cache.byArgs(cacheByArgs === true ? undefined : cacheByArgs, {
       bucket,
+      fetchPolicy,
     })
   }
 
   if (cacheByParams) {
     return cache.byArgs(cacheByParams === true ? undefined : cacheByParams, {
       bucket,
+      fetchPolicy,
     })
   }
 
