@@ -45,6 +45,7 @@ export function requestStateReducer(state = {}, {type, payload}) {
 
     case 'request_aborted': {
       return {
+        ...state,
         status: 'aborted',
         pending: false,
       }

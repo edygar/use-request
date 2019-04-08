@@ -99,18 +99,17 @@ export function useRequest({
         ...(requestsMapRef.current.get(state.requestId) || {}),
         ...state,
         ...helpers,
-        abort() {
-          helpers.abort()
-          if (releaseOnAbortRef.current) {
-            release.bind(null, state.requestId, false)
-          }
-        },
         release: release.bind(null, state.requestId),
         repeat: () => requestRef.current(...state.args),
       })
 
       if (onChangeRef.current)
         onChangeRef.current(getResult(), requestRef.current)
+
+      if (state.status === 'aborted' && releaseOnAbortRef.current) {
+        release(state.requestId)
+      }
+
       updateMap()
     }),
   })
