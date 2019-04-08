@@ -39,10 +39,21 @@ export function useRequest({
   const concurrentRequestsRef = useUpdatedRef(concurrentRequests)
   const abortOnReleaseRef = useUpdatedRef(abortOnRelease)
   const abortOnUnmountRef = useUpdatedRef(abortOnUnmount)
+  const onChangeRef = useUpdatedRef(params.onChange)
   const bucket = useCacheBucket(cacheBucket)
   const mapRequest = params.request
   const mapRequestType = typeof mapRequest
   const [requestsMapRef, updateMap] = useStateMap()
+
+  const resultingState = React.useMemo(
+    () =>
+      concurrentRequests === false
+        ? Array.from(requestsMapRef.current.values())[
+            requestsMapRef.current.size - 1
+          ] || idleState
+        : Array.from(requestsMapRef.current.values()),
+    [concurrentRequests, requestsMapRef],
+  )
 
   const applyCachePolicy = getCacheResolver({
     fetchPolicy,
@@ -102,7 +113,7 @@ export function useRequest({
         }
       }
     },
-    [], // eslint-disable-line
+    [], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const requestRef = useUpdatedRef(
@@ -137,12 +148,14 @@ export function useRequest({
     [], // eslint-disable-line
   )
 
-  return [
-    concurrentRequests === false
-      ? Array.from(requestsMapRef.current.values())[
-          requestsMapRef.current.size - 1
-        ] || idleState
-      : Array.from(requestsMapRef.current.values()),
-    requestRef.current,
-  ]
+  React.useEffect(
+    () => () => {
+      if (typeof onChangeRef.current === 'function') {
+        onChangeRef.current(resultingState, requestRef.current)
+      }
+    },
+    [resultingState], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  return [resultingState, requestRef.current]
 }
