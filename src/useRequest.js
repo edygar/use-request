@@ -28,6 +28,7 @@ const idleState = {
 export function useRequest({
   abortOnUnmount = false,
   abortOnRelease = true,
+  releaseOnAbort = true,
   cacheBucket = 'local',
   cacheBy = undefined,
   cacheByParams = undefined,
@@ -37,23 +38,31 @@ export function useRequest({
   ...params
 }) {
   const concurrentRequestsRef = useUpdatedRef(concurrentRequests)
+  const releaseOnAbortRef = useUpdatedRef(releaseOnAbort)
   const abortOnReleaseRef = useUpdatedRef(abortOnRelease)
   const abortOnUnmountRef = useUpdatedRef(abortOnUnmount)
-  const onChangeRef = useUpdatedRef(params.onChange)
+  const onChangeRef = useUpdatedRef(params.onChange || false)
   const bucket = useCacheBucket(cacheBucket)
   const mapRequest = params.request
   const mapRequestType = typeof mapRequest
   const [requestsMapRef, updateMap] = useStateMap()
 
-  const resultingState = React.useMemo(
-    () =>
-      concurrentRequests === false
-        ? Array.from(requestsMapRef.current.values())[
-            requestsMapRef.current.size - 1
-          ] || idleState
-        : Array.from(requestsMapRef.current.values()),
-    [concurrentRequests, requestsMapRef],
-  )
+  // Although it's never reassign, requestRef is referred on callbacks
+  // before its declaration, therefore, `let`, so it can be referred but
+  // later assigned
+  let requestRef // eslint-disable-line prefer-const
+
+  const getResult = () =>
+    concurrentRequests === false
+      ? Array.from(requestsMapRef.current.values())[
+          requestsMapRef.current.size - 1
+        ] || idleState
+      : Array.from(requestsMapRef.current.values())
+
+  const resultingState = React.useMemo(getResult, [
+    concurrentRequests,
+    requestsMapRef,
+  ])
 
   const applyCachePolicy = getCacheResolver({
     fetchPolicy,
@@ -64,11 +73,11 @@ export function useRequest({
     bucket,
   })
 
-  function release(requestId) {
+  function release(requestId, shouldAbort = abortOnReleaseRef.current) {
     updateMap(map => {
       if (!map.has(requestId)) return
       const requestState = map.get(requestId)
-      if (abortOnReleaseRef.current) {
+      if (shouldAbort) {
         requestState.abort()
       }
 
@@ -90,10 +99,18 @@ export function useRequest({
         ...(requestsMapRef.current.get(state.requestId) || {}),
         ...state,
         ...helpers,
+        abort() {
+          helpers.abort()
+          if (releaseOnAbortRef.current) {
+            release.bind(null, state.requestId, false)
+          }
+        },
         release: release.bind(null, state.requestId),
-        repeat: () => performRequest(...state.args),
+        repeat: () => requestRef.current(...state.args),
       })
 
+      if (onChangeRef.current)
+        onChangeRef.current(getResult(), requestRef.current)
       updateMap()
     }),
   })
@@ -116,7 +133,7 @@ export function useRequest({
     [], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const requestRef = useUpdatedRef(
+  requestRef = useUpdatedRef(
     React.useCallback(
       (...args) => {
         releaseExceeded()
@@ -146,15 +163,6 @@ export function useRequest({
       }
     },
     [], // eslint-disable-line
-  )
-
-  React.useEffect(
-    () => () => {
-      if (typeof onChangeRef.current === 'function') {
-        onChangeRef.current(resultingState, requestRef.current)
-      }
-    },
-    [resultingState], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   return [resultingState, requestRef.current]
