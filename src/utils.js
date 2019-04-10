@@ -83,7 +83,7 @@ export function getCacheResolver({
   }
 
   if (cacheByParams) {
-    return cache.byArgs(cacheByParams === true ? undefined : cacheByParams, {
+    return cache.byParams(cacheByParams === true ? undefined : cacheByParams, {
       bucket,
       fetchPolicy,
     })
