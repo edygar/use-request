@@ -15,8 +15,7 @@
     "test": "kcd-scripts test",
     "test:update": "npm test -- --updateSnapshot --coverage",
     "validate": "kcd-scripts validate",
-    "setup": "npm install && npm run validate -s",
-    "semantic-release": "semantic-release"
+    "setup": "npm install && npm run validate -s"
   },
   "files": [
     "dist"
@@ -36,8 +35,7 @@
     "jest-in-case": "^1.0.2",
     "kcd-scripts": "^0.49.0",
     "react": "^16.8.4",
-    "react-hooks-testing-library": "^0.3.6",
-    "semantic-release": "^15.13.3"
+    "react-hooks-testing-library": "^0.3.6"
   },
   "husky": {
     "hooks": {
@@ -54,8 +52,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/edygar/use-request.git",
-    "tag": "next"
+    "url": "https://github.com/edygar/use-request.git"
   },
   "bugs": {
     "url": "https://github.com/edygar/use-request/issues"
