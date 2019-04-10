@@ -1,6 +1,6 @@
 {
   "name": "@edygar/use-request",
-  "version": "1.0.2",
+  "version": "0.0.0-development",
   "description": "Provides a handle set of hooks and components to facilitate performing requests using React.",
   "main": "dist/@edygar/use-request.cjs.js",
   "module": "dist/@edygar/use-request.esm.js",
@@ -15,7 +15,8 @@
     "test": "kcd-scripts test",
     "test:update": "npm test -- --updateSnapshot --coverage",
     "validate": "kcd-scripts validate",
-    "setup": "npm install && npm run validate -s"
+    "setup": "npm install && npm run validate -s",
+    "semantic-release": "semantic-release"
   },
   "files": [
     "dist"
@@ -35,7 +36,8 @@
     "jest-in-case": "^1.0.2",
     "kcd-scripts": "^0.49.0",
     "react": "^16.8.4",
-    "react-hooks-testing-library": "^0.3.6"
+    "react-hooks-testing-library": "^0.3.6",
+    "semantic-release": "^15.13.3"
   },
   "husky": {
     "hooks": {
