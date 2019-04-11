@@ -127,7 +127,7 @@ export function useRequestInitiator({
 
   return React.useCallback(
     (...args) => {
-      const suspense = request()
+      const suspense = Promise.resolve().then(request)
       return suspense
 
       async function request() {
