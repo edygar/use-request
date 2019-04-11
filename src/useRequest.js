@@ -37,7 +37,7 @@ export function useRequest({
   fetchPolicy,
   ...params
 }) {
-  let silence = false
+  const silence = React.useRef(false)
   const concurrentRequestsRef = useUpdatedRef(concurrentRequests)
   const releaseOnAbortRef = useUpdatedRef(releaseOnAbort)
   const abortOnReleaseRef = useUpdatedRef(abortOnRelease)
@@ -83,7 +83,7 @@ export function useRequest({
 
     requestsMapRef.current.delete(requestId)
 
-    if (!silence) updateMap()
+    if (!silence.current) updateMap()
   }
 
   const performRequest = useRequestInitiator({
@@ -111,7 +111,7 @@ export function useRequest({
         release(state.requestId)
       }
 
-      if (!silence) updateMap()
+      if (!silence.current) updateMap()
     }),
   })
 
@@ -149,14 +149,14 @@ export function useRequest({
         requestRef.current(params.request)
       } else {
         releaseExceeded()
-        if (!silence) updateMap()
+        if (!silence.current) updateMap()
       }
     }
   }, [{request: params.request}])
 
   React.useEffect(
     () => () => {
-      silence = true // eslint-disable-line react-hooks/exhaustive-deps
+      silence.current = true // eslint-disable-line react-hooks/exhaustive-deps
       if (abortOnUnmountRef.current) {
         for (const [, requestState] of requestsMapRef.current.entries()) {
           requestState.abort()

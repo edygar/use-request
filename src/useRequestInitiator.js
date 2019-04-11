@@ -126,109 +126,118 @@ export function useRequestInitiator({
   const stateReducerRef = useUpdatedRef(stateReducer)
 
   return React.useCallback(
-    async function request(...args) {
-      let state, abort, onAbort
-      let requestEnded = false
+    (...args) => {
+      const suspense = request()
+      return suspense
 
-      const abortion = new Promise(resolve => {
-        abort = () => {
-          if (requestEnded) return
-          if (onAbort) onAbort()
-          resolve(new AbortError('The operation was aborted.'))
-        }
-      })
+      async function request() {
+        let state, abort, onAbort
+        let requestEnded = false
 
-      try {
-        await dispatch({
-          type: 'init',
-          payload: {
-            requestId: Symbol(counterRef.current++),
-            args,
-          },
+        const abortion = new Promise(resolve => {
+          abort = () => {
+            if (requestEnded) return
+            if (onAbort) onAbort()
+            resolve(new AbortError('The operation was aborted.'))
+          }
         })
 
-        const params = await Promise.race([
-          abortion.then(reject),
-          thenOnce(
-            typeof mapRequestRef.current === 'function'
-              ? mapRequestRef.current(...args)
-              : mapRequestRef.current,
-          ),
-        ])
-
-        await dispatch({
-          type: 'params_defined',
-          payload: params,
-        })
-
-        const requested = performRequestRef.current(state, {
-          setProgress,
-          registerAborter: providedAborter => {
-            onAbort = providedAborter
-          },
-        })
-
-        await dispatch({
-          type: 'request_sent',
-          payload: requested,
-        })
-
-        const responded = await Promise.race([abortion.then(reject), requested])
-        requestEnded = true
-
-        await dispatch({
-          type: 'response_received',
-          payload: responded,
-        })
-
-        const resolved = await Promise.race([
-          abortion.then(reject),
-          thenOnce(mapResponseRef.current(state, {setProgress})),
-        ])
-
-        await dispatch({
-          type: 'request_succeeded',
-          payload: resolved,
-        })
-      } catch (rejected) {
-        requestEnded = true
-        if (rejected instanceof Error && rejected.name === 'AbortError') {
-          dispatch({
-            type: 'request_aborted',
-            payload: rejected,
+        try {
+          await dispatch({
+            type: 'init',
+            payload: {
+              requestId: Symbol(counterRef.current++),
+              args,
+              suspense,
+            },
           })
 
-          if (throwOnAbortionsRef.current) throw state
-        } else {
-          dispatch({
-            type: 'request_failed',
-            payload: rejected,
+          const params = await Promise.race([
+            abortion.then(reject),
+            thenOnce(
+              typeof mapRequestRef.current === 'function'
+                ? mapRequestRef.current(...args)
+                : mapRequestRef.current,
+            ),
+          ])
+
+          await dispatch({
+            type: 'params_defined',
+            payload: params,
           })
 
-          if (throwOnRejectionsRef.current) throw state
+          const requested = performRequestRef.current(state, {
+            setProgress,
+            registerAborter: providedAborter => {
+              onAbort = providedAborter
+            },
+          })
+
+          await dispatch({
+            type: 'request_sent',
+            payload: requested,
+          })
+
+          const responded = await Promise.race([
+            abortion.then(reject),
+            requested,
+          ])
+          requestEnded = true
+
+          await dispatch({
+            type: 'response_received',
+            payload: responded,
+          })
+
+          const resolved = await Promise.race([
+            abortion.then(reject),
+            thenOnce(mapResponseRef.current(state, {setProgress})),
+          ])
+
+          await dispatch({
+            type: 'request_succeeded',
+            payload: resolved,
+          })
+        } catch (rejected) {
+          requestEnded = true
+          if (rejected instanceof Error && rejected.name === 'AbortError') {
+            dispatch({
+              type: 'request_aborted',
+              payload: rejected,
+            })
+
+            if (throwOnAbortionsRef.current) throw state
+          } else {
+            dispatch({
+              type: 'request_failed',
+              payload: rejected,
+            })
+
+            if (throwOnRejectionsRef.current) throw state
+          }
         }
-      }
 
-      return state
+        return state
 
-      function dispatch(action) {
-        state = stateReducerRef.current(state, action)
+        function dispatch(action) {
+          state = stateReducerRef.current(state, action)
 
-        if (requestEnded) {
-          return onChangeRef.current(state, {abort, setProgress})
+          if (requestEnded) {
+            return onChangeRef.current(state, {abort, setProgress})
+          }
+
+          return Promise.race([
+            abortion.then(reject),
+            thenOnce(onChangeRef.current(state, {abort, setProgress})),
+          ])
         }
 
-        return Promise.race([
-          abortion.then(reject),
-          thenOnce(onChangeRef.current(state, {abort, setProgress})),
-        ])
-      }
-
-      function setProgress(payload) {
-        dispatch({
-          type: 'progress',
-          payload,
-        })
+        function setProgress(payload) {
+          dispatch({
+            type: 'progress',
+            payload,
+          })
+        }
       }
     },
     /**
