@@ -32,7 +32,7 @@ export function requestStateReducer(state = {}, {type, payload}) {
       return {
         ...state,
         responded: payload,
-        status: 'resolved',
+        status: 'responded',
       }
 
     case 'request_succeeded':
