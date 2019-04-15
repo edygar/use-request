@@ -54,6 +54,8 @@ export function byParams(
     if (state.status === 'resolved') {
       localBucket.set(cacheId, state)
     }
+
+    onChange(state, helpers)
   }
 }
 
@@ -88,5 +90,7 @@ export function byArgs(
     if (state.status === 'resolved') {
       localBucket.set(cacheId, state)
     }
+
+    onChange(state, helpers)
   }
 }
