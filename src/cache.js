@@ -35,31 +35,25 @@ export function byParams(
   {fetchPolicy = 'cache-first', bucket: localBucket = bucket} = {},
 ) {
   return onChange => (state, helpers) => {
-    if (state.status === 'aborted' && 'resolved' in state) {
-      onChange({...state, status: 'resolved'}, helpers)
-    }
+    const cacheId = getCacheId(state.params)
+    if (cacheId !== null && localBucket.has(cacheId)) {
+      const fromCache = localBucket.get(cacheId)
 
-    if (state.status === 'prepared' && fetchPolicy.match(/(?!no-)cache/)) {
-      const cacheId = getCacheId(state.params)
-      if (cacheId !== null && localBucket.has(cacheId)) {
-        const fromCache = localBucket.get(cacheId)
-
-        if (fetchPolicy !== 'cache-only') {
-          onChange({...fromCache, ...state, status: 'resolved'}, helpers)
+      if (fetchPolicy === 'cache-only') {
+        if (state.status === 'prepared') {
+          helpers.abort()
         }
-
-        helpers.abort()
         onChange({...fromCache, requestId: state.requestId}, helpers)
         return
       }
+
+      onChange({...fromCache, ...state, status: 'resolved'}, helpers)
+      return
     }
 
     if (state.status === 'resolved') {
-      const cacheId = getCacheId(state.params)
       localBucket.set(cacheId, state)
     }
-
-    onChange(state, helpers)
   }
 }
 
@@ -75,30 +69,24 @@ export function byArgs(
   {fetchPolicy = 'cache-first', bucket: localBucket = bucket} = {},
 ) {
   return onChange => (state, helpers) => {
-    if (state.status === 'aborted' && 'resolved' in state) {
-      onChange({...state, status: 'resolved'}, helpers)
-    }
+    const cacheId = getCacheId(...state.args)
+    if (cacheId !== null && localBucket.has(cacheId)) {
+      const fromCache = localBucket.get(cacheId)
 
-    if (state.status === 'init' && fetchPolicy.match(/(?!no-)cache/)) {
-      const cacheId = getCacheId(...state.args)
-      if (cacheId !== null && localBucket.has(cacheId)) {
-        const fromCache = localBucket.get(cacheId)
-
-        if (fetchPolicy !== 'cache-only') {
-          onChange({...fromCache, ...state, status: 'resolved'}, helpers)
+      if (fetchPolicy === 'cache-only') {
+        if (state.status === 'prepared') {
+          helpers.abort()
         }
-
-        helpers.abort()
         onChange({...fromCache, requestId: state.requestId}, helpers)
         return
       }
+
+      onChange({...fromCache, ...state, status: 'resolved'}, helpers)
+      return
     }
 
     if (state.status === 'resolved') {
-      const cacheId = getCacheId(...state.args)
       localBucket.set(cacheId, state)
     }
-
-    onChange(state, helpers)
   }
 }
