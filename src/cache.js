@@ -35,6 +35,11 @@ export function byParams(
   {fetchPolicy = 'cache-first', bucket: localBucket = bucket} = {},
 ) {
   return onChange => (state, helpers) => {
+    if (state.status === 'init') {
+      onChange(state, helpers)
+      return
+    }
+
     const cacheId = getCacheId(state.params)
     if (cacheId !== null && localBucket.has(cacheId)) {
       const fromCache = localBucket.get(cacheId)
@@ -76,7 +81,7 @@ export function byArgs(
       const fromCache = localBucket.get(cacheId)
 
       if (fetchPolicy === 'cache-only') {
-        if (state.status === 'prepared') {
+        if (state.status === 'init') {
           helpers.abort()
         }
         onChange({...fromCache, requestId: state.requestId}, helpers)
