@@ -152,14 +152,11 @@ export function useRequestInitiator({
             },
           })
 
-          const params = await Promise.race([
-            abortion.then(reject),
-            thenOnce(
-              typeof mapRequestRef.current === 'function'
-                ? mapRequestRef.current(...args)
-                : mapRequestRef.current,
-            ),
-          ])
+          const params = await abortable(
+            typeof mapRequestRef.current === 'function'
+              ? mapRequestRef.current(...args)
+              : mapRequestRef.current,
+          )
 
           await dispatch({
             type: 'params_defined',
@@ -178,10 +175,7 @@ export function useRequestInitiator({
             payload: requested,
           })
 
-          const responded = await Promise.race([
-            abortion.then(reject),
-            requested,
-          ])
+          const responded = await abortable(requested)
           requestEnded = true
 
           await dispatch({
@@ -189,10 +183,9 @@ export function useRequestInitiator({
             payload: responded,
           })
 
-          const resolved = await Promise.race([
-            abortion.then(reject),
-            thenOnce(mapResponseRef.current(state, {setProgress})),
-          ])
+          const resolved = await abortable(
+            mapResponseRef.current(state, {setProgress}),
+          )
 
           await dispatch({
             type: 'request_succeeded',
@@ -226,10 +219,11 @@ export function useRequestInitiator({
             return onChangeRef.current(state, {abort, setProgress})
           }
 
-          return Promise.race([
-            abortion.then(reject),
-            thenOnce(onChangeRef.current(state, {abort, setProgress})),
-          ])
+          return abortable(onChangeRef.current(state, {abort, setProgress}))
+        }
+
+        function abortable(promise) {
+          return Promise.race([abortion.then(reject), thenOnce(promise)])
         }
 
         function setProgress(payload) {
