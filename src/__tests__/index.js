@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 import {renderHook, cleanup} from 'react-hooks-testing-library'
 import {useRequestInitiator} from '../useRequestInitiator'
 
@@ -23,82 +24,176 @@ describe('useRequestInitiator', () => {
     expect(firstRenderResult).toBe(secondRenderResult)
   })
 
-  it("allows consumer to 'perform' the 'request'", async () => {
-    const [requestCall, doRequest] = usePromise()
-    jest.spyOn(window, 'fetch').mockImplementation(() => new Promise(() => {}))
+  describe('request initator callback', () => {
+    it('calls request lifecycle callbacks in order', async () => {
+      const anyArgs = [
+        Infinity,
+        'arguments',
+        {
+          and: 'shapes',
+        },
+      ]
+      const requestDescription = {url: '/some-end-point?some=data'}
+      const payload = {result: ['some', 'data']}
+      const result = payload.result
+      const pendingRequest = Promise.resolve(payload)
 
-    const perform = jest.fn(doRequest)
-    const {
-      result: {current: initiate},
-    } = renderHook(params => useRequestInitiator(params), {
-      initialProps: {perform},
-    })
+      const [requestEnd, request] = usePromise(() => requestDescription)
+      const [performEnd, perform] = usePromise(() => pendingRequest)
+      const [responseEnd, response] = usePromise(() => result)
 
-    const requestDescription = {url: '/some-url'}
-    const suspense = initiate(requestDescription)
-    await requestCall
+      const {
+        result: {current: initiate},
+      } = renderHook(params => useRequestInitiator(params), {
+        initialProps: {
+          request,
+          perform,
+          response,
+        },
+      })
 
-    expect(perform).toHaveBeenCalledWith(
-      {
+      const suspense = initiate(...anyArgs)
+
+      await requestEnd
+      expect(request).toHaveBeenCalledWith(...anyArgs)
+      expect(perform).not.toHaveBeenCalled()
+      expect(response).not.toHaveBeenCalled()
+
+      await performEnd
+      expect(perform).toHaveBeenCalledWith(
+        {
+          requestId: expect.anything(),
+          status: 'prepared',
+          suspense,
+          pending: true,
+          args: anyArgs,
+          params: requestDescription,
+        },
+        {
+          registerAborter: expect.any(Function),
+          setProgress: expect.any(Function),
+        },
+      )
+      expect(response).not.toHaveBeenCalled()
+
+      await responseEnd
+      expect(response).toHaveBeenCalledWith(
+        {
+          requestId: expect.anything(),
+          status: 'responded',
+          suspense,
+          pending: true,
+          args: anyArgs,
+          params: requestDescription,
+          requested: pendingRequest,
+          responded: payload,
+        },
+        {
+          setProgress: expect.any(Function),
+        },
+      )
+
+      await expect(suspense).resolves.toEqual({
         requestId: expect.anything(),
-        status: 'prepared',
+        status: 'resolved',
         suspense,
-        pending: true,
-        args: [requestDescription],
+        pending: false,
+        args: anyArgs,
         params: requestDescription,
-      },
-      expect.objectContaining({}),
-    )
+        requested: pendingRequest,
+        responded: payload,
+        resolved: result,
+      })
+    })
+
+    it("calls 'perform' callback with current state and helpers", async () => {
+      const [requestEnd, completeRequest] = usePromise()
+      const perform = completeRequest
+
+      const {
+        result: {current: initiate},
+      } = renderHook(params => useRequestInitiator(params), {
+        initialProps: {perform},
+      })
+
+      const requestDescription = {url: '/some-url'}
+      const suspense = initiate(requestDescription)
+
+      await requestEnd
+
+      expect(perform).toHaveBeenCalledWith(
+        {
+          requestId: expect.anything(),
+          status: 'prepared',
+          suspense,
+          pending: true,
+          args: [requestDescription],
+          params: requestDescription,
+        },
+        {
+          registerAborter: expect.any(Function),
+          setProgress: expect.any(Function),
+        },
+      )
+    })
+
+    it("calls 'request' callback with its own arguments", async () => {
+      const [requestEnd, completeRequest] = usePromise()
+      const [performEnd, perform] = usePromise()
+
+      const request = jest.fn(completeRequest)
+      const {
+        result: {current: initiate},
+      } = renderHook(params => useRequestInitiator(params), {
+        initialProps: {request, perform},
+      })
+
+      const args = [
+        Infinity,
+        'arguments',
+        {
+          and: 'shapes',
+        },
+      ]
+      initiate(...args)
+
+      await requestEnd
+      await performEnd
+
+      expect(request).toHaveBeenCalledWith(...args)
+    })
+
+    it("calls 'perform' with params", async () => {
+      const [requestEnd, completeRequest] = usePromise()
+      jest
+        .spyOn(window, 'fetch')
+        .mockImplementation(() => new Promise(() => {}))
+
+      const request = jest.fn(completeRequest)
+      const {
+        result: {current: initiate},
+      } = renderHook(params => useRequestInitiator(params), {
+        initialProps: {request},
+      })
+
+      initiate(Infinity, 'arguments', {
+        and: 'shapes',
+      })
+
+      await requestEnd
+
+      expect(request).toHaveBeenCalledWith(Infinity, 'arguments', {
+        and: 'shapes',
+      })
+    })
   })
-
-  it("calls 'request' with arguments", async () => {
-    const [requestCall, doRequest] = usePromise()
-    jest.spyOn(window, 'fetch').mockImplementation(() => new Promise(() => {}))
-
-    const request = jest.fn(doRequest)
-    const {
-      result: {current: initiate},
-    } = renderHook(params => useRequestInitiator(params), {
-      initialProps: {request},
-    })
-
-    initiate(Infinity, 'arguments', {
-      and: 'shapes',
-    })
-
-    await requestCall
-
-    expect(request).toHaveBeenCalledWith(Infinity, 'arguments', {
-      and: 'shapes',
-    })
-  })
-
-  it("calls 'perform' with params", async () => {
-    const [requestCall, doRequest] = usePromise()
-    jest.spyOn(window, 'fetch').mockImplementation(() => new Promise(() => {}))
-
-    const request = jest.fn(doRequest)
-    const {
-      result: {current: initiate},
-    } = renderHook(params => useRequestInitiator(params), {
-      initialProps: {request},
-    })
-
-    initiate(Infinity, 'arguments', {
-      and: 'shapes',
-    })
-
-    await requestCall
-
-    expect(request).toHaveBeenCalledWith(Infinity, 'arguments', {
-      and: 'shapes',
-    })
-  })
-
-  // jest.spyOn(window, 'fetch').mockImplementation(() => new Promise(() => {}));
 })
 
-function usePromise() {
+function identity(arg) {
+  return arg
+}
+
+function usePromise(mapResolution = identity, mapRejection = identity) {
   let resolve, reject
 
   return [
@@ -106,7 +201,15 @@ function usePromise() {
       resolve = res
       reject = rej
     }),
-    result => resolve(result),
-    err => reject(err),
+    jest.fn((...args) => {
+      const result = mapResolution(...args)
+      resolve(result)
+      return result
+    }),
+    jest.fn((...args) => {
+      const result = mapRejection(...args)
+      reject(result)
+      return result
+    }),
   ]
 }
