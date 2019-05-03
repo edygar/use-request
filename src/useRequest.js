@@ -36,7 +36,7 @@ export function useRequest({
   concurrentRequests = false,
   fetchPolicy,
   ...params
-}) {
+} = {}) {
   const silence = React.useRef(false)
   const concurrentRequestsRef = useUpdatedRef(concurrentRequests)
   const releaseOnAbortRef = useUpdatedRef(releaseOnAbort)
