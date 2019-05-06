@@ -1,39 +1,69 @@
-import 'unfetch/polyfill'
+/* eslint-disable no-console */
 import {renderHook, cleanup} from 'react-hooks-testing-library'
 import useRequest from '../index'
+
+const originalError = console.error
+console.error = (...args) => {
+  if (/Warning.*not wrapped in act/.test(args[0])) {
+    return
+  }
+  originalError.call(console, ...args)
+}
 
 afterEach(() => {
   cleanup()
   jest.restoreAllMocks()
 })
 
-describe('useRequest', () => {
-  it('exposes initial request state and request initiator callback', () => {
-    const {
-      result: {
-        current: [state, initiate],
-      },
-    } = renderHook(params => useRequest(params), {
-      initialProps: {},
-    })
-
-    expect(state).toEqual({
-      status: 'idle',
-      pending: false,
-      release: expect.any(Function),
-      abort: expect.any(Function),
-    })
-    expect(initiate).toBeInstanceOf(Function)
+test('useRequest exposes initial request state and request initiator callback', () => {
+  const {
+    result: {
+      current: [state, initiate],
+    },
+  } = renderHook(params => useRequest(params), {
+    initialProps: {},
   })
 
-  describe('request param', () => {
+  expect(state).toEqual({
+    status: 'idle',
+    pending: false,
+    release: expect.any(Function),
+    abort: expect.any(Function),
+  })
+  expect(initiate).toBeInstanceOf(Function)
+})
+
+test('request initiator callback fetches a given request', async () => {
+  const [fetchResponse, respond] = usePromise()
+  window.fetch = jest.fn(() =>
+    Promise.resolve({ok: true, json: () => fetchResponse}),
+  )
+
+  const {result} = renderHook(params => useRequest(params), {
+    initialProps: {},
+  })
+
+  const suspense = result.current[1]({url: '/some-endpoint'})
+  expect(suspense).toBeInstanceOf(Promise)
+
+  respond({result: [1, 2, 3]})
+
+  expect(await suspense).toEqual(
+    expect.objectContaining({
+      status: 'resolved',
+      pending: false,
+      resolved: {result: [1, 2, 3]},
+    }),
+  )
+})
+
+describe('request param', () => {
+  describe('when an object', () => {
     it('fetches automatically when is an object', async () => {
       const [fetchResponse, respond] = usePromise()
-      jest
-        .spyOn(window, 'fetch')
-        .mockImplementation(() =>
-          Promise.resolve({ok: true, json: () => fetchResponse}),
-        )
+      window.fetch = jest.fn(() =>
+        Promise.resolve({ok: true, json: () => fetchResponse}),
+      )
 
       const {result, waitForNextUpdate} = renderHook(
         params => useRequest(params),
@@ -42,19 +72,30 @@ describe('useRequest', () => {
         },
       )
 
-      respond({result: [1, 2, 3]})
       await waitForNextUpdate()
+      expect(result.current[0]).toEqual({
+        release: expect.any(Function),
+        abort: expect.any(Function),
+        repeat: expect.any(Function),
+        setProgress: expect.any(Function),
+        suspense: expect.any(Promise),
+        args: [{url: '/some-endpoint'}],
+        pending: true,
+        status: 'init',
+        requestId: expect.anything(),
+      })
+
+      respond({result: [1, 2, 3]})
       await result.current[0].suspense
+
       expect(result.current[0].resolved).toEqual({result: [1, 2, 3]})
     })
 
     it('aborts ongoing fetch when is set to an falsy value', async () => {
       const [fetchResponse, respond] = usePromise()
-      jest
-        .spyOn(window, 'fetch')
-        .mockImplementation(() =>
-          Promise.resolve({ok: true, json: () => fetchResponse}),
-        )
+      window.fetch = jest.fn(() =>
+        Promise.resolve({ok: true, json: () => fetchResponse}),
+      )
 
       const {result, rerender, waitForNextUpdate} = renderHook(
         params => useRequest(params),
@@ -63,10 +104,24 @@ describe('useRequest', () => {
         },
       )
 
+      await waitForNextUpdate()
+      expect(result.current[0]).toEqual({
+        release: expect.any(Function),
+        abort: expect.any(Function),
+        repeat: expect.any(Function),
+        setProgress: expect.any(Function),
+        suspense: expect.any(Promise),
+        args: [{url: '/some-endpoint'}],
+        pending: true,
+        status: 'init',
+        requestId: expect.anything(),
+      })
+
       respond({result: [1, 2, 3]})
 
       await waitForNextUpdate()
       rerender({request: false})
+
       await result.current[0].suspense
       expect(result.current[0]).toEqual({
         release: expect.any(Function),
@@ -74,6 +129,42 @@ describe('useRequest', () => {
         pending: false,
         status: 'idle',
       })
+    })
+  })
+
+  describe('when a function', () => {
+    it("doesn't fetch automatically when is a function", async () => {
+      const [timeout, expire] = usePromise()
+      window.fetch = jest.fn()
+
+      const {result} = renderHook(params => useRequest(params), {
+        initialProps: {request: () => ({url: '/some-endpoint'})},
+      })
+
+      setTimeout(expire, 1000)
+      await timeout
+
+      expect(result.current[0]).toEqual({
+        status: 'idle',
+        pending: false,
+        release: expect.any(Function),
+        abort: expect.any(Function),
+      })
+      expect(window.fetch).not.toHaveBeenCalled()
+    })
+
+    it('is called when request initator is invoked', async () => {
+      window.fetch = jest.fn(() =>
+        Promise.resolve({ok: true, json: () => ({})}),
+      )
+
+      const request = jest.fn(identity)
+      const {result} = renderHook(params => useRequest(params), {
+        initialProps: {request},
+      })
+
+      await result.current[1](Infinity, {args: 'shape'})
+      expect(request).toHaveBeenCalledWith(Infinity, {args: 'shape'})
     })
   })
 })

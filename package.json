@@ -34,8 +34,7 @@
     "kcd-scripts": "^1.2.1",
     "react": "^16.8.4",
     "react-dom": "^16.8.6",
-    "react-hooks-testing-library": "^0.3.6",
-    "unfetch": "^4.1.0"
+    "react-hooks-testing-library": "^0.3.6"
   },
   "husky": {
     "hooks": {

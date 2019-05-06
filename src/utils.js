@@ -93,10 +93,14 @@ export function getCacheResolver({
 }
 
 export function useCacheBucket(cacheBucket) {
-  const [localBucket] = React.useState(() => new Map(), [])
-  return cacheBucket === 'local'
-    ? localBucket
-    : cacheBucket === 'global'
-    ? undefined
-    : cacheBucket
+  const localBucketRef = React.useRef(null)
+
+  if (cacheBucket === 'local') {
+    if (localBucketRef.current === null) localBucketRef.current = new Map()
+
+    return localBucketRef.current
+  }
+  if (cacheBucket === 'global') return undefined
+
+  return cacheBucket
 }

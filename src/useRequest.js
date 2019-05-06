@@ -104,7 +104,7 @@ export function useRequest({
         repeat: () => requestRef.current(...state.args),
       })
 
-      if (onChangeRef.current)
+      if (onChangeRef.current && !silence.current)
         onChangeRef.current(getResult(), requestRef.current)
 
       if (state.status === 'aborted' && releaseOnAbortRef.current) {
