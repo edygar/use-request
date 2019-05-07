@@ -57,6 +57,24 @@ test('request initiator callback fetches a given request', async () => {
   )
 })
 
+test("request initiator invocation sets it's arguments at request state", async () => {
+  window.fetch = jest.fn(() => Promise.resolve({ok: true, json: () => ({})}))
+
+  const {result, waitForNextUpdate} = renderHook(params => useRequest(params), {
+    initialProps: {},
+  })
+
+  result.current[1](Infinity, 'shape', ['of'], {args: 'args'})
+  await waitForNextUpdate()
+  expect(result.current[0]).toEqual(
+    expect.objectContaining({
+      status: 'init',
+      pending: true,
+      args: [Infinity, 'shape', ['of'], {args: 'args'}],
+    }),
+  )
+})
+
 describe('request param', () => {
   describe('when an object', () => {
     it('fetches automatically when is an object', async () => {
@@ -153,18 +171,30 @@ describe('request param', () => {
       expect(window.fetch).not.toHaveBeenCalled()
     })
 
-    it('is called when request initator is invoked', async () => {
+    it("returns the 'params' request state", async () => {
       window.fetch = jest.fn(() =>
         Promise.resolve({ok: true, json: () => ({})}),
       )
 
-      const request = jest.fn(identity)
-      const {result} = renderHook(params => useRequest(params), {
-        initialProps: {request},
-      })
+      const request = jest.fn(() => ({url: '/some-endpoint'}))
+      const {result, waitForNextUpdate} = renderHook(
+        params => useRequest(params),
+        {
+          initialProps: {request},
+        },
+      )
 
-      await result.current[1](Infinity, {args: 'shape'})
-      expect(request).toHaveBeenCalledWith(Infinity, {args: 'shape'})
+      result.current[1]()
+      await waitForNextUpdate()
+      await waitForNextUpdate()
+
+      expect(result.current[0]).toEqual(
+        expect.objectContaining({
+          status: 'prepared',
+          pending: true,
+          params: {url: '/some-endpoint'},
+        }),
+      )
     })
   })
 })
